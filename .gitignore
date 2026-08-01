@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+backend/.venv/
+backend/data/
+
+# Rust
+engine/target/
+
+# Node / Svelte
+frontend/node_modules/
+frontend/build/
+frontend/.svelte-kit/
+frontend/.vite/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Backups dari repo lama (root-owned, tidak bisa dihapus)
+.git-bak*
+**/.git-bak*
+
+# Logs
+*.log
+/tmp/

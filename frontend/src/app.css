@@ -1,0 +1,125 @@
+@import 'tailwindcss';
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@theme {
+	--font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+	--font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+	--color-accent-50: #ecfdf5;
+	--color-accent-100: #d1fae5;
+	--color-accent-200: #a7f3d0;
+	--color-accent-300: #6ee7b7;
+	--color-accent-400: #34d399;
+	--color-accent-500: #10b981;
+	--color-accent-600: #059669;
+	--color-accent-700: #047857;
+	--color-accent-800: #065f46;
+	--color-accent-900: #064e3b;
+}
+
+html,
+body {
+	height: 100%;
+}
+
+/* a11y: visible focus rings */
+:focus-visible {
+	outline: 2px solid var(--color-accent-500);
+	outline-offset: 2px;
+	border-radius: 4px;
+}
+
+::selection {
+	background: rgba(16, 185, 129, 0.35);
+}
+
+button {
+	cursor: pointer;
+}
+
+/* scrollbar */
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+::-webkit-scrollbar-thumb {
+	background: #3f3f46;
+	border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+	background: #52525b;
+}
+
+/* markdown-ish prose helpers */
+.prose-ai h1,
+.prose-ai h2,
+.prose-ai h3 {
+	font-weight: 600;
+	color: #f4f4f5;
+	margin-top: 1.1em;
+	margin-bottom: 0.5em;
+	line-height: 1.3;
+}
+.prose-ai h1 {
+	font-size: 1.35rem;
+}
+.prose-ai h2 {
+	font-size: 1.15rem;
+}
+.prose-ai h3 {
+	font-size: 1rem;
+}
+.prose-ai p {
+	margin: 0.6em 0;
+	line-height: 1.65;
+}
+.prose-ai ul,
+.prose-ai ol {
+	margin: 0.6em 0;
+	padding-left: 1.4em;
+}
+.prose-ai ul {
+	list-style: disc;
+}
+.prose-ai ol {
+	list-style: decimal;
+}
+.prose-ai li {
+	margin: 0.25em 0;
+	line-height: 1.6;
+}
+.prose-ai code {
+	font-family: var(--font-mono);
+	font-size: 0.85em;
+	background: #18181b;
+	border: 1px solid #27272a;
+	border-radius: 5px;
+	padding: 0.1em 0.35em;
+}
+.prose-ai pre {
+	background: #09090b;
+	border: 1px solid #27272a;
+	border-radius: 10px;
+	padding: 0.9em 1em;
+	overflow-x: auto;
+	margin: 0.7em 0;
+}
+.prose-ai pre code {
+	background: none;
+	border: none;
+	padding: 0;
+}
+.prose-ai strong {
+	color: #f4f4f5;
+	font-weight: 600;
+}
+.prose-ai blockquote {
+	border-left: 3px solid #10b981;
+	padding-left: 0.9em;
+	color: #a1a1aa;
+	margin: 0.7em 0;
+}
