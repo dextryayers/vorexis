@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { api } from '$lib/api/client';
+	import { composerFocusTick } from '$lib/stores/app.svelte';
 	import { onMount } from 'svelte';
 	import type { ModuleMeta, ModuleName } from '$lib/types';
 
@@ -8,15 +9,13 @@
 		onScan,
 		onStop,
 		streaming = false,
-		error,
-		focusTick = 0
+		error
 	}: {
 		onSend: (t: string) => void;
 		onScan: (t: string, m: ModuleName[], o: Record<string, string>) => void;
 		onStop: () => void;
 		streaming?: boolean;
 		error: string | null;
-		focusTick?: number;
 	} = $props();
 
 	let input = $state('');
@@ -31,7 +30,7 @@
 	});
 
 	$effect(() => {
-		if (focusTick > 0) textarea?.focus();
+		if (composerFocusTick.n > 0) textarea?.focus();
 	});
 
 	const modules = $derived(Object.entries(modulesMeta));

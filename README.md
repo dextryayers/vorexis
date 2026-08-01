@@ -75,6 +75,18 @@ npm run dev -- --port 5173
 
 Open http://localhost:5173, register a user, and start scanning.
 
+## Sessions & routes
+
+Setiap chat & scan punya route sendiri (mirip session ChatGPT):
+
+| Route          | Konten                                  |
+| -------------- | --------------------------------------- |
+| `/`            | Halaman baru (welcome + composer)       |
+| `/c/<chat-id>` | Session chat (id random 32-hex) + status scan + link hasil |
+| `/scan/<id>`   | Hasil scan lengkap (tabs per modul, AI report) |
+
+Sidebar selalu tampil: pilih chat/scan lama, hapus chat, atau mulai baru. Shortcut `/` fokus composer.
+
 ## Configuration
 
 All settings are read from the environment or a `.env` file inside `backend/`

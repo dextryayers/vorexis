@@ -58,6 +58,13 @@ export function upsertScan(scan: Scan) {
 	else scans.unshift(scan);
 }
 
+// ---------- Composer focus (global "/" shortcut) ----------
+export const composerFocusTick = $state({ n: 0 });
+
+export function bumpComposerFocus() {
+	composerFocusTick.n++;
+}
+
 // ---------- Toasts ----------
 export interface Toast {
 	id: number;

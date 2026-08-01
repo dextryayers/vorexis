@@ -6,7 +6,7 @@ from fastapi.responses import StreamingResponse
 
 from app.core.database import execute, fetch_all, fetch_one, new_id, now_iso
 from app.core.deps import get_current_user
-from app.models.schemas import ChatCreate, ChatMessageIn
+from app.models.schemas import ChatCreate, ChatMessageIn, ChatScanAttach
 from app.services.ai.manager import manager as ai_manager
 from app.services.engine import MODULES_META, get_scan
 
@@ -38,6 +38,32 @@ async def create_chat(body: ChatCreate, user_id: str = Depends(get_current_user)
         (chat_id, user_id, body.scan_id, body.title, now_iso(), now_iso()),
     )
     return {"id": chat_id, "title": body.title, "scan_id": body.scan_id}
+
+
+@router.get("/{chat_id}")
+async def get_chat(chat_id: str, user_id: str = Depends(get_current_user)):
+    chat = await fetch_one(
+        "SELECT id, title, scan_id, created_at, updated_at FROM chats WHERE id=? AND user_id=?",
+        (chat_id, user_id),
+    )
+    if not chat:
+        raise HTTPException(404, "chat not found")
+    return chat
+
+
+@router.post("/{chat_id}/scan")
+async def attach_scan(chat_id: str, body: ChatScanAttach, user_id: str = Depends(get_current_user)):
+    chat = await fetch_one("SELECT id, user_id FROM chats WHERE id=?", (chat_id,))
+    if not chat or chat["user_id"] != user_id:
+        raise HTTPException(404, "chat not found")
+    scan = await fetch_one("SELECT id FROM scans WHERE id=? AND user_id=?", (body.scan_id, user_id))
+    if not scan:
+        raise HTTPException(404, "scan not found")
+    await execute(
+        "UPDATE chats SET scan_id=?, updated_at=? WHERE id=?",
+        (body.scan_id, now_iso(), chat_id),
+    )
+    return {"ok": True, "scan_id": body.scan_id}
 
 
 @router.get("/{chat_id}/messages")

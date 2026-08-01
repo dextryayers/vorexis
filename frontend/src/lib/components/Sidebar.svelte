@@ -1,37 +1,30 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { apiDelete } from '$lib/api/client';
 	import { auth, chats, loadChats, logout, pushToast, scans } from '$lib/stores/app.svelte';
 	import { onMount } from 'svelte';
-	import type { Chat, Scan } from '$lib/types';
+	import type { Scan } from '$lib/types';
 
 	let {
-		chatId,
-		activeScanId = null,
-		onNewChat,
-		onSelectChat,
-		onDeleteChat,
-		onSelectScan,
 		mobileOpen = false,
 		onCloseMobile
 	}: {
-		chatId: string | null;
-		activeScanId?: string | null;
-		onNewChat: () => void;
-		onSelectChat: (id: string) => void;
-		onDeleteChat: (id: string) => void;
-		onSelectScan: (scan: Scan) => void;
 		mobileOpen?: boolean;
 		onCloseMobile?: () => void;
 	} = $props();
 
 	let collapsed = $state(false);
 
+	const activeChatId = $derived(page.url.pathname.startsWith('/c/') ? page.url.pathname.slice(3) : null);
+	const activeScanId = $derived(page.url.pathname.startsWith('/scan/') ? page.url.pathname.slice(6) : null);
+
 	onMount(() => {
 		loadChats();
 	});
 
 	function newChat() {
-		onNewChat();
+		goto('/');
 		onCloseMobile?.();
 	}
 
@@ -40,7 +33,7 @@
 		if (!confirm('Delete this chat?')) return;
 		try {
 			await apiDelete(`/api/chat/${id}`);
-			onDeleteChat(id);
+			if (activeChatId === id) goto('/');
 			pushToast('Chat deleted', 'success');
 			loadChats();
 		} catch (err) {
@@ -49,12 +42,12 @@
 	}
 
 	function selectChat(id: string) {
-		onSelectChat(id);
+		goto(`/c/${id}`);
 		onCloseMobile?.();
 	}
 
 	function selectScan(s: Scan) {
-		onSelectScan(s);
+		goto(`/scan/${s.id}`);
 		onCloseMobile?.();
 	}
 
@@ -93,19 +86,22 @@
 >
 	<!-- Header -->
 	<div class="flex items-center gap-3 px-4 py-4">
-		<div
+		<a
+			href="/"
+			title="AIPentest home"
+			aria-label="AIPentest home"
 			class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-500/15 text-accent-400 ring-1 ring-accent-500/30"
 		>
 			<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 				<path d="M12 2l8 3.5v5.1c0 5-3.4 9.6-8 10.9-4.6-1.3-8-5.9-8-10.9V5.5L12 2z" />
 				<path d="M9 12l2 2 4-4.5" />
 			</svg>
-		</div>
+		</a>
 		{#if !collapsed}
-			<div class="min-w-0 flex-1">
+			<a href="/" class="min-w-0 flex-1">
 				<div class="truncate text-sm font-semibold text-zinc-100">AIPentest</div>
 				<div class="truncate font-mono text-[10px] text-zinc-500">AI Web Security Scanner</div>
-			</div>
+			</a>
 		{/if}
 		<button
 			onclick={() => (collapsed = !collapsed)}
@@ -157,7 +153,7 @@
 			</div>
 			{#each chats as c (c.id)}
 				<div
-					class="group flex items-center rounded-lg transition {chatId === c.id
+					class="group flex items-center rounded-lg transition {activeChatId === c.id
 						? 'bg-zinc-800 text-zinc-100'
 						: 'hover:bg-zinc-800/70 text-zinc-400'}"
 				>

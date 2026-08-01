@@ -68,6 +68,10 @@ class ChatMessageIn(BaseModel):
     message: str
 
 
+class ChatScanAttach(BaseModel):
+    scan_id: str
+
+
 class ChatResponse(BaseModel):
     id: str
     title: str
