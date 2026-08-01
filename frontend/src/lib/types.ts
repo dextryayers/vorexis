@@ -31,7 +31,7 @@ export interface Scan {
 	id: string;
 	target: string;
 	modules: string[];
-	status: 'pending' | 'running' | 'finished' | 'stopped';
+	status: 'pending' | 'running' | 'finished' | 'stopped' | 'failed';
 	progress: number;
 	started_at: string | null;
 	finished_at: string | null;

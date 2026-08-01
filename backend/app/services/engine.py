@@ -118,17 +118,25 @@ async def start_scan(user_id: str, payload: dict) -> dict:
 
     job = build_job(payload)
 
-    proc = await asyncio.to_thread(
-        subprocess.Popen,
-        [binary],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    proc.stdin.write(json.dumps(job))
-    proc.stdin.flush()
-    proc.stdin.close()
+    try:
+        proc = await asyncio.to_thread(
+            subprocess.Popen,
+            [binary],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        proc.stdin.write(json.dumps(job))
+        proc.stdin.flush()
+        proc.stdin.close()
+    except Exception as exc:  # noqa: BLE001
+        await execute(
+            """UPDATE scans SET status='failed', finished_at=?, error=? WHERE id=?""",
+            (now_iso(), f"failed to start engine: {exc}", scan_id),
+        )
+        _user_scan_count[user_id] = max(0, _user_scan_count.get(user_id, 0) - 1)
+        raise ValueError(f"failed to start engine: {exc}") from exc
 
     active = ActiveScan(scan_id=scan_id, user_id=user_id, process=proc)
     _active_scans[scan_id] = active

@@ -2,6 +2,13 @@
 
 export const API_BASE = import.meta.env.PUBLIC_API_BASE ?? '';
 
+function dispatchUnauthorized() {
+	setToken(null);
+	if (typeof window !== 'undefined') {
+		window.dispatchEvent(new CustomEvent('aipentest:unauthorized'));
+	}
+}
+
 export function getToken(): string | null {
 	if (typeof localStorage === 'undefined') return null;
 	return localStorage.getItem('aipentest_token');
@@ -50,7 +57,7 @@ export async function api<T = unknown>(
 			/* not json */
 		}
 		if (res.status === 401) {
-			setToken(null);
+			dispatchUnauthorized();
 		}
 		throw new Error(detail);
 	}
@@ -107,7 +114,7 @@ export function streamSSE(
 					} catch {
 						/* not json */
 					}
-					if (res.status === 401) setToken(null);
+					if (res.status === 401) dispatchUnauthorized();
 					controllerSink.error(new Error(detail));
 					return;
 				}
@@ -160,7 +167,7 @@ export async function apiDelete(path: string): Promise<void> {
 		} catch {
 			/* not json */
 		}
-		if (res.status === 401) setToken(null);
+		if (res.status === 401) dispatchUnauthorized();
 		throw new Error(detail);
 	}
 }

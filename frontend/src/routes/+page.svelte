@@ -10,6 +10,7 @@
 	let busy = $state(false);
 
 	onMount(() => {
+		loadChats();
 		loadScans();
 		setActiveScan(null);
 	});
@@ -42,14 +43,19 @@
 				body: { target, modules, options }
 			});
 			setActiveScan(scan.id);
-			const created = await api<{ id: string }>('/api/chat', {
-				method: 'POST',
-				body: { title: target.slice(0, 48), scan_id: scan.id }
-			});
-			loadChats();
-			loadScans();
-			pushToast('Scan started', 'success');
-			goto(`/c/${created.id}`);
+			try {
+				const created = await api<{ id: string }>('/api/chat', {
+					method: 'POST',
+					body: { title: target.slice(0, 48), scan_id: scan.id }
+				});
+				loadChats();
+				pushToast('Scan started', 'success');
+				goto(`/c/${created.id}`);
+			} catch {
+				loadScans();
+				pushToast('Scan started — opening results page', 'info');
+				goto(`/scan/${scan.id}`);
+			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {

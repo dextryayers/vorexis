@@ -37,12 +37,12 @@ class TargetResponse(BaseModel):
 
 
 class ScanCreate(BaseModel):
-    target: str
+    target: str = Field(min_length=1, max_length=512)
     modules: list[str] = Field(
         default_factory=lambda: ["http", "tls", "fingerprint", "tech", "waf"]
     )
-    concurrency: int = 50
-    timeout: int = 8
+    concurrency: int = Field(default=50, ge=1, le=200)
+    timeout: int = Field(default=8, ge=1, le=30)
     options: dict = Field(default_factory=dict)
 
 

@@ -104,13 +104,13 @@
 					disabled={loading}
 					class="w-full rounded-xl bg-accent-600 py-2.5 text-sm font-semibold text-zinc-950 transition enabled:hover:bg-accent-500 disabled:opacity-40"
 				>
-					{loading ? 'Tunggu...' : mode === 'login' ? 'Masuk' : 'Buat akun'}
+					{loading ? 'Please wait...' : mode === 'login' ? 'Sign in' : 'Create account'}
 				</button>
 			</form>
 		</div>
 
 		<p class="mt-6 text-center font-mono text-[11px] text-zinc-600">
-			Rust engine &middot; FastAPI orkestrasi &middot; AI analysis
+			Rust engine &middot; FastAPI orchestration &middot; AI analysis
 		</p>
 	</div>
 </div>

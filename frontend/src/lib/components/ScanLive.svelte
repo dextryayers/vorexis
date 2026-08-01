@@ -16,6 +16,41 @@
 	let moduleStats = $state<Record<string, { results: number; events: number }>>({});
 	let reconnectAttempts = 0;
 
+	// Reset local state whenever a new scan phase starts (fresh mount).
+	$effect(() => {
+		if (scanning) {
+			progress = 0;
+			statusText = 'Preparing engine...';
+			elapsed = 0;
+			failed = false;
+			stopping = false;
+			moduleStats = {};
+			reconnectAttempts = 0;
+		}
+	});
+
+	// Fallback: if the WS died or events were missed, poll the DB so the UI
+	// never stays "running" forever.
+	let pollTimer: ReturnType<typeof setInterval> | null = null;
+	$effect(() => {
+		if (!scanning || !activeScan.id) return;
+		pollTimer = setInterval(async () => {
+			try {
+				const s = await api<Scan>(`/api/scans/${activeScan.id}`);
+				if (s.status !== 'running') {
+					scanning = false;
+					loadScans();
+				}
+			} catch {
+				/* backend unreachable — keep trying */
+			}
+		}, 3000);
+		return () => {
+			if (pollTimer) clearInterval(pollTimer);
+			pollTimer = null;
+		};
+	});
+
 	$effect(() => {
 		if (!scanning) return;
 		const t = setInterval(() => elapsed++, 1000);
@@ -86,13 +121,21 @@
 			statusText = `Module ${module} finished (${dur ?? 0}ms)`;
 		} else if (etype === 'done') {
 			const returncode = typeof r.returncode === 'number' ? r.returncode : (data?.returncode as number | undefined);
-			const summary = (data?.summary ?? null) as Record<string, unknown> | null;
 			failed = returncode !== undefined && returncode !== 0;
 			scanning = false;
 			statusText = failed ? 'Scan failed' : 'Scan complete';
 			progress = 100;
-			if (failed) pushToast('Engine reported an error — see status details', 'error');
-			void summary;
+			if (failed) {
+				pushToast('Engine reported an error — see status details', 'error');
+			} else {
+				const findings = Array.isArray(events) ? events.length : 0;
+				api<Scan>(`/api/scans/${activeScan.id}`)
+					.then((s) => {
+						if (s.status === 'stopped') pushToast('Scan stopped', 'info');
+						else pushToast(`Scan complete — ${findings} findings recorded`, 'success');
+					})
+					.catch(() => pushToast('Scan complete', 'success'));
+			}
 			ws?.close();
 			setTimeout(() => loadScans(), 300);
 		}

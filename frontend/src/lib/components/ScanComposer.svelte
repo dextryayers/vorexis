@@ -9,12 +9,14 @@
 		onScan,
 		onStop,
 		streaming = false,
+		scanRunning = false,
 		error
 	}: {
 		onSend: (t: string) => void;
 		onScan: (t: string, m: ModuleName[], o: Record<string, string>) => void;
 		onStop: () => void;
 		streaming?: boolean;
+		scanRunning?: boolean;
 		error: string | null;
 	} = $props();
 
@@ -24,6 +26,17 @@
 	let sending = $state(false);
 	let scanError = $state<string | null>(null);
 	let textarea: HTMLTextAreaElement;
+
+	const URL_RE = /^(https?):\/\//i;
+	const HOST_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+(?::\d{1,5})?(?:\/.*)?$/i;
+	const IP_RE = /^\d{1,3}(?:\.\d{1,3}){3}(?::\d{1,5})?(?:\/.*)?$/;
+	const LOCAL_RE = /^localhost(?::\d{1,5})?(?:\/.*)?$/i;
+
+	function looksLikeTarget(t: string): boolean {
+		const s = t.trim();
+		if (/\s/.test(s)) return false;
+		return URL_RE.test(s) || IP_RE.test(s) || LOCAL_RE.test(s) || HOST_RE.test(s);
+	}
 
 	$effect(() => {
 		scanError = error;
@@ -36,6 +49,7 @@
 	const modules = $derived(Object.entries(modulesMeta));
 
 	onMount(() => {
+		textarea?.focus();
 		api<Record<string, ModuleMeta>>('/api/chat/modules').then((m) => {
 			modulesMeta = m;
 		});
@@ -51,7 +65,7 @@
 	async function submit() {
 		const text = input.trim();
 		if (!text || sending || streaming) return;
-		if (text.startsWith('http') || text.includes('.') || text.includes(':')) {
+		if (looksLikeTarget(text)) {
 			sending = true;
 			try {
 				await onScan(text, [...selected], {});
@@ -64,6 +78,13 @@
 			onSend(text);
 		}
 		input = '';
+		queueMicrotask(resize);
+	}
+
+	function resize() {
+		if (!textarea) return;
+		textarea.style.height = 'auto';
+		textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
 	}
 </script>
 
@@ -95,11 +116,12 @@
 	<div
 		class="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-zinc-700/80 bg-zinc-900/80 px-3 py-2.5 focus-within:border-accent-500/60 focus-within:ring-1 focus-within:ring-accent-500/30"
 	>
-		<textarea
-			bind:this={textarea}
-			rows="1"
-			bind:value={input}
-			onkeydown={(e) => {
+	<textarea
+		bind:this={textarea}
+		rows="1"
+		bind:value={input}
+		oninput={resize}
+		onkeydown={(e) => {
 				if (e.key === 'Enter' && !e.shiftKey) {
 					e.preventDefault();
 					submit();
@@ -138,7 +160,13 @@
 			</button>
 		{/if}
 	</div>
-	<p class="mx-auto mt-2 max-w-3xl text-center text-[10px] text-zinc-600">
-		Scans run on the Rust engine &middot; results analyzed by AI (Ollama / OpenAI / Gemini / HuggingFace)
-	</p>
+	{#if scanRunning}
+		<p class="mx-auto mt-2 max-w-3xl text-center text-[10px] text-amber-400/80">
+			Scan in progress — you can keep chatting, findings attach to this session automatically.
+		</p>
+	{:else}
+		<p class="mx-auto mt-2 max-w-3xl text-center text-[10px] text-zinc-600">
+			Scans run on the Rust engine &middot; results analyzed by AI (Ollama / OpenAI / Gemini / HuggingFace)
+		</p>
+	{/if}
 </div>

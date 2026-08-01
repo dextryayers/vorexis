@@ -90,6 +90,12 @@
 						const last = messages[messages.length - 1];
 						messages[messages.length - 1] = { ...last, content: last.content + v.delta };
 					}
+					if (typeof v.error === 'string') {
+						const last = messages[messages.length - 1];
+						if (last && !last.content.trim()) messages.pop();
+						pushToast(v.error, 'error');
+						break;
+					}
 					if (v.done) break;
 				}
 			}
@@ -128,11 +134,15 @@
 				method: 'POST',
 				body: { target, modules, options }
 			});
-			await api(`/api/chat/${chatId}/scan`, { method: 'POST', body: { scan_id: s.id } });
 			scan = s;
 			setActiveScan(s.id);
 			loadChats();
 			loadScans();
+			try {
+				await api(`/api/chat/${chatId}/scan`, { method: 'POST', body: { scan_id: s.id } });
+			} catch {
+				pushToast('Scan started but could not be linked to this chat', 'error');
+			}
 			pushToast('Scan started', 'success');
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
@@ -188,6 +198,9 @@
 					href={`/scan/${scan?.id}`}
 					class="flex shrink-0 items-center gap-1.5 rounded-lg border border-accent-500/30 bg-accent-500/10 px-2.5 py-1 font-mono text-[11px] text-accent-300 transition hover:bg-accent-500/20"
 				>
+					{#if scanning}
+						<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400"></span>
+					{/if}
 					<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
 						<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
@@ -235,6 +248,7 @@
 			onScan={handleScan}
 			onStop={handleStop}
 			{streaming}
+			scanRunning={scanning}
 			{error}
 		/>
 	</div>

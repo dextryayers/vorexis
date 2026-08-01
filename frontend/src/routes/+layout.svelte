@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import '../app.css';
 	import Sidebar from '$lib/components/Sidebar.svelte';
-	import { auth, toasts, bumpComposerFocus } from '$lib/stores/app.svelte';
+	import { auth, toasts, bumpComposerFocus, logout } from '$lib/stores/app.svelte';
 	import { onMount } from 'svelte';
 
 	let { children } = $props();
@@ -13,6 +13,11 @@
 		if (!auth.token && page.url.pathname !== '/login') {
 			window.location.href = '/login';
 		}
+		// Token expired/rejected by the API mid-session (401) — drop the session.
+		window.addEventListener('aipentest:unauthorized', () => {
+			if (!auth.token) return;
+			logout();
+		});
 	});
 
 	// React to auth dropping (401 clears the token) while on a protected page.
@@ -48,15 +53,19 @@
 		<Sidebar mobileOpen={sidebarOpen} onCloseMobile={() => (sidebarOpen = false)} />
 
 		<main class="relative flex min-w-0 flex-1 flex-col">
-			<button
-				onclick={() => (sidebarOpen = true)}
-				class="absolute left-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/80 text-zinc-300 backdrop-blur md:hidden"
-				aria-label="Open sidebar"
-			>
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M3 6h18M3 12h18M3 18h18" />
-				</svg>
-			</button>
+			<!-- Mobile top bar: keeps the hamburger clear of page headers -->
+			<div class="flex h-12 shrink-0 items-center gap-2.5 border-b border-zinc-800/80 bg-zinc-950/90 px-3 backdrop-blur md:hidden">
+				<button
+					onclick={() => (sidebarOpen = true)}
+					class="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/80 text-zinc-300"
+					aria-label="Open sidebar"
+				>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M3 6h18M3 12h18M3 18h18" />
+					</svg>
+				</button>
+				<span class="text-sm font-semibold text-zinc-100">AIPentest</span>
+			</div>
 			{@render children()}
 		</main>
 	</div>

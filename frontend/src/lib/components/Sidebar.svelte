@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { apiDelete } from '$lib/api/client';
-	import { auth, chats, loadChats, logout, pushToast, scans } from '$lib/stores/app.svelte';
+	import { api, apiDelete } from '$lib/api/client';
+	import { auth, chats, loadChats, loadScans, logout, pushToast, scans } from '$lib/stores/app.svelte';
 	import { onMount } from 'svelte';
 	import type { Scan } from '$lib/types';
 
@@ -15,12 +15,15 @@
 	} = $props();
 
 	let collapsed = $state(false);
+	let confirmDeleteId = $state<string | null>(null);
+	let deleteTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const activeChatId = $derived(page.url.pathname.startsWith('/c/') ? page.url.pathname.slice(3) : null);
 	const activeScanId = $derived(page.url.pathname.startsWith('/scan/') ? page.url.pathname.slice(6) : null);
 
 	onMount(() => {
 		loadChats();
+		loadScans();
 	});
 
 	function newChat() {
@@ -28,14 +31,37 @@
 		onCloseMobile?.();
 	}
 
-	async function deleteChat(id: string, e: MouseEvent) {
+	function armDelete(id: string, e: MouseEvent) {
 		e.stopPropagation();
-		if (!confirm('Delete this chat?')) return;
+		if (confirmDeleteId === id) {
+			if (deleteTimer) clearTimeout(deleteTimer);
+			confirmDeleteId = null;
+			void doDelete(id);
+		} else {
+			confirmDeleteId = id;
+			deleteTimer = setTimeout(() => {
+				if (confirmDeleteId === id) confirmDeleteId = null;
+			}, 2500);
+		}
+	}
+
+	async function doDelete(id: string) {
 		try {
 			await apiDelete(`/api/chat/${id}`);
 			if (activeChatId === id) goto('/');
 			pushToast('Chat deleted', 'success');
 			loadChats();
+		} catch (err) {
+			pushToast(err instanceof Error ? err.message : String(err), 'error');
+		}
+	}
+
+	async function stopScan(id: string, e: MouseEvent) {
+		e.stopPropagation();
+		try {
+			await api(`/api/scans/${id}/stop`, { method: 'POST' });
+			pushToast('Stopping scan', 'info');
+			loadScans();
 		} catch (err) {
 			pushToast(err instanceof Error ? err.message : String(err), 'error');
 		}
@@ -172,13 +198,19 @@
 						</span>
 					</button>
 					<button
-						onclick={(e) => deleteChat(c.id, e)}
-						title="Delete chat"
-						class="mr-1 shrink-0 rounded p-1 text-zinc-600 opacity-0 transition hover:text-red-400 group-hover:opacity-100"
+						onclick={(e) => armDelete(c.id, e)}
+						title={confirmDeleteId === c.id ? 'Click again to confirm' : 'Delete chat'}
+						class="mr-1 shrink-0 rounded p-1 opacity-0 transition group-hover:opacity-100 {confirmDeleteId === c.id
+							? 'bg-red-500/20 text-red-400'
+							: 'text-zinc-600 hover:text-red-400'}"
 					>
-						<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-						</svg>
+						{#if confirmDeleteId === c.id}
+							<span class="px-1 text-[10px] font-bold">Sure?</span>
+						{:else}
+							<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+							</svg>
+						{/if}
 					</button>
 				</div>
 			{/each}
@@ -187,16 +219,31 @@
 				Recent scans
 			</div>
 			{#each scans.slice(0, 10) as s (s.id)}
-				<button
-					onclick={() => selectScan(s)}
-					class="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition hover:bg-zinc-800/70 {activeScanId === s.id
+				<div
+					class="group flex items-center rounded-lg transition {activeScanId === s.id
 						? 'bg-zinc-800 text-zinc-200'
-						: 'text-zinc-500'}"
+						: 'text-zinc-500 hover:bg-zinc-800/70'}"
 				>
-					<span class="h-1.5 w-1.5 shrink-0 rounded-full {statusColor(s.status)}"></span>
-					<span class="min-w-0 flex-1 truncate font-mono">{s.target}</span>
-					<span class="shrink-0 text-[9px] text-zinc-600">{fmtDate(s.finished_at ?? s.started_at)}</span>
-				</button>
+					<button
+						onclick={() => selectScan(s)}
+						class="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs"
+					>
+						<span class="h-1.5 w-1.5 shrink-0 rounded-full {statusColor(s.status)}"></span>
+						<span class="min-w-0 flex-1 truncate font-mono">{s.target}</span>
+						<span class="shrink-0 text-[9px] text-zinc-600">{fmtDate(s.finished_at ?? s.started_at)}</span>
+					</button>
+					{#if s.status === 'running'}
+						<button
+							onclick={(e) => stopScan(s.id, e)}
+							title="Stop scan"
+							class="mr-1 shrink-0 rounded p-1 text-amber-400 opacity-0 transition hover:text-red-400 group-hover:opacity-100"
+						>
+							<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+								<rect x="6" y="6" width="12" height="12" rx="2" />
+							</svg>
+						</button>
+					{/if}
+				</div>
 			{/each}
 		</nav>
 	{:else}

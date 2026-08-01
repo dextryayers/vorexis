@@ -28,8 +28,27 @@
 	const modules = $derived([...grouped.keys()]);
 
 	$effect(() => {
-		activeModule = modules[0] ?? null;
+		if (!modules.includes(activeModule ?? '')) activeModule = modules[0] ?? null;
 	});
+
+	function fmtDuration(): string {
+		const a = scan.started_at ? new Date(scan.started_at).getTime() : null;
+		const b = scan.finished_at ? new Date(scan.finished_at).getTime() : null;
+		if (a === null || b === null || Number.isNaN(a) || Number.isNaN(b)) return '';
+		const s = Math.max(0, Math.round((b - a) / 1000));
+		const m = Math.floor(s / 60);
+		return m > 0 ? `${m}m ${s % 60}s` : `${s}s`;
+	}
+
+	async function copyReport() {
+		if (!report) return;
+		try {
+			await navigator.clipboard.writeText(report);
+			pushToast('Report copied to clipboard', 'success');
+		} catch {
+			pushToast('Failed to copy report', 'error');
+		}
+	}
 
 	async function load() {
 		loading = true;
@@ -91,6 +110,9 @@
 							</span>
 							<span>{scan.modules?.length ?? 0} modules</span>
 							<span>{scan.summary?.total_events ?? events.length} events</span>
+							{#if fmtDuration()}
+								<span>{fmtDuration()}</span>
+							{/if}
 							{#if scan.error}
 								<span class="text-red-400">error: {scan.error}</span>
 							{/if}
@@ -119,12 +141,18 @@
 				<div class="prose-ai mt-4 max-h-96 overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
 					<div class="mb-2 flex items-center justify-between">
 						<span class="text-[10px] font-semibold uppercase tracking-widest text-accent-400">AI Report</span>
-						<button
-							onclick={() => (report = null)}
-							class="text-[10px] text-zinc-500 hover:text-zinc-300"
-						>
-							Hide
-						</button>
+						<div class="flex items-center gap-2">
+							<button
+								onclick={copyReport}
+								title="Copy report"
+								class="text-[10px] text-zinc-500 hover:text-zinc-300"
+							>
+								Copy
+							</button>
+							<button onclick={() => (report = null)} class="text-[10px] text-zinc-500 hover:text-zinc-300">
+								Hide
+							</button>
+						</div>
 					</div>
 					<Markdown source={report} />
 				</div>

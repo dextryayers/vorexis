@@ -39,6 +39,8 @@ async def start_scan(body: ScanCreate, user_id: str = Depends(get_current_user),
         ) from None
     except RuntimeError as exc:
         raise HTTPException(429, str(exc)) from None
+    except ValueError as exc:
+        raise HTTPException(500, str(exc)) from None
 
 
 @router.get("/{scan_id}")
