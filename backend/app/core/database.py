@@ -1,10 +1,12 @@
 """Async SQLite persistence layer (aiosqlite) with a small connection pool.
 
-WAL mode + NORMAL synchronous gives concurrent readers without blocking
-writers; a pool of a few connections lets reads and writes overlap.
+Local-first design: WAL mode + NORMAL synchronous, a pool of a few
+connections for reads, and a single-writer lock so app writes never
+collide ("database is locked" is impossible between our own connections).
 """
 import asyncio
 import json
+import sqlite3
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,10 +14,12 @@ from pathlib import Path
 import aiosqlite
 
 POOL_SIZE = 4
+BUSY_TIMEOUT_MS = 30_000
 
 _pool: list[aiosqlite.Connection] = []
 _pool_round: int = 0
 _pool_lock: asyncio.Lock | None = None
+_write_lock: asyncio.Lock | None = None
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -91,23 +95,27 @@ def new_id() -> str:
 async def _configure(conn: aiosqlite.Connection) -> None:
     await conn.execute("PRAGMA journal_mode=WAL")
     await conn.execute("PRAGMA synchronous=NORMAL")
-    await conn.execute("PRAGMA busy_timeout=5000")
+    await conn.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
     await conn.execute("PRAGMA foreign_keys=ON")
     await conn.execute("PRAGMA cache_size=-8192")
 
 
 async def init_db(db_path: str) -> None:
-    global _pool_round, _pool_lock
+    global _pool_round, _pool_lock, _write_lock
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     _pool.clear()
     for _ in range(POOL_SIZE):
-        conn = await aiosqlite.connect(db_path)
+        # True autocommit: every statement is its own transaction, so no
+        # connection can ever hold an implicit transaction open.
+        conn = await aiosqlite.connect(db_path, isolation_level=None)
         conn.row_factory = aiosqlite.Row
         await _configure(conn)
         _pool.append(conn)
     await _pool[0].executescript(SCHEMA)
     await _pool[0].commit()
+    await _pool[0].execute("PRAGMA wal_checkpoint(TRUNCATE)")
     _pool_lock = asyncio.Lock()
+    _write_lock = asyncio.Lock()
     _pool_round = 0
 
 
@@ -128,29 +136,61 @@ async def get_db() -> aiosqlite.Connection:
 
 
 async def fetch_one(sql: str, params: tuple = ()) -> dict | None:
-    cur = await _next_conn().execute(sql, params)
-    row = await cur.fetchone()
-    await cur.close()
-    return dict(row) if row else None
+    conn = _next_conn()
+    try:
+        cur = await conn.execute(sql, params)
+        row = await cur.fetchone()
+        await cur.close()
+        return dict(row) if row else None
+    finally:
+        await conn.rollback()
 
 
 async def fetch_all(sql: str, params: tuple = ()) -> list[dict]:
-    cur = await _next_conn().execute(sql, params)
-    rows = await cur.fetchall()
-    await cur.close()
-    return [dict(r) for r in rows]
+    conn = _next_conn()
+    try:
+        cur = await conn.execute(sql, params)
+        rows = await cur.fetchall()
+        await cur.close()
+        return [dict(r) for r in rows]
+    finally:
+        await conn.rollback()
+
+
+def _is_locked(exc: BaseException) -> bool:
+    return isinstance(exc, sqlite3.OperationalError) and "locked" in str(exc)
 
 
 async def execute(sql: str, params: tuple = ()) -> None:
-    conn = _next_conn()
-    await conn.execute(sql, params)
-    await conn.commit()
+    """Serialized write: one writer at a time, with retry on lock."""
+    assert _write_lock is not None
+    async with _write_lock:
+        for attempt in range(4):
+            conn = _next_conn()
+            try:
+                await conn.execute(sql, params)
+                await conn.commit()
+                return
+            except BaseException as exc:  # noqa: BLE001
+                if not _is_locked(exc) or attempt == 3:
+                    raise
+                await asyncio.sleep(0.05 * (attempt + 1))
 
 
 async def execute_many(sql: str, params: list[tuple]) -> None:
-    conn = _next_conn()
-    await conn.executemany(sql, params)
-    await conn.commit()
+    """Serialized bulk write with retry on lock."""
+    assert _write_lock is not None
+    async with _write_lock:
+        for attempt in range(4):
+            conn = _next_conn()
+            try:
+                await conn.executemany(sql, params)
+                await conn.commit()
+                return
+            except BaseException as exc:  # noqa: BLE001
+                if not _is_locked(exc) or attempt == 3:
+                    raise
+                await asyncio.sleep(0.05 * (attempt + 1))
 
 
 def serialize(data) -> str:
