@@ -32,7 +32,7 @@
 	}
 </script>
 
-<div class="flex min-h-dvh items-center justify-center bg-zinc-950 px-4">
+<div class="flex min-h-dvh w-full items-center justify-center bg-zinc-950 px-4">
 	<div class="w-full max-w-sm">
 		<div class="mb-8 flex flex-col items-center">
 			<div
