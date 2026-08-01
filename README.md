@@ -35,6 +35,19 @@ provider fallback chain.
 
 ## Quick Start
 
+Jalankan semuanya (engine build otomatis + backend + frontend) dari direktori root:
+
+```bash
+python3 run.py
+```
+
+Setup otomatis: membuat `backend/.venv` + install requirements, `npm install`, dan
+`cargo build --release` jika belum ada. Opsi: `--kill` (matikan proses lama di port
+8000/5173), `--prod` (frontend production build), `--force-engine-build` (rebuild
+engine), `--no-setup` (skip setup otomatis).
+
+Atau jalankan manual satu per satu:
+
 ### 1. Engine
 
 ```bash
